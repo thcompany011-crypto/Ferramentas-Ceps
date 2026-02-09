@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NovaBeauty - Acesso VIP</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .container { background: #1e293b; width: 100%; max-width: 400px; padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); text-align: center; border: 1px solid #334155; display: none; }
+        h2 { margin-bottom: 8px; color: #f8fafc; }
+        p.desc { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+        input { width: 100%; padding: 16px; font-size: 16px; border: 2px solid #334155; border-radius: 12px; margin-bottom: 12px; text-align: center; background: #0f172a; color: white; }
+        button { width: 100%; padding: 16px; background: #38bdf8; color: #0f172a; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        .btn-reg { background: none; border: 1px solid #38bdf8; color: #38bdf8; margin-top: 10px; }
+        #resultado { margin-top: 20px; padding: 15px; border-radius: 12px; display: none; font-weight: 600; line-height: 1.5; }
+        .sucesso { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+        .erro { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+    </style>
+</head>
+<body>
+
+    <div id="telaLogin" class="container" style="display: block;">
+        <div style="font-size: 40px; margin-bottom: 15px;">🔐</div>
+        <h2>Acesso Afiliados</h2>
+        <p class="desc">NovaBeauty Serum - Consulta Logzz</p>
+        <input type="password" id="senhaAcesso" placeholder="Sua Senha Individual">
+        <button onclick="fazerLogin()">Entrar no Sistema</button>
+        <button class="btn-reg" onclick="mostrarTela('telaCadastro')">Solicitar Acesso</button>
+    </div>
+
+    <div id="telaCadastro" class="container">
+        <h2>Solicitar Acesso</h2>
+        <p class="desc">Envie seus dados para aprovação.</p>
+        <input type="text" id="regNome" placeholder="Seu Nome">
+        <input type="email" id="regEmail" placeholder="Seu E-mail">
+        <button onclick="enviarSolicitacao()" style="background: #25d366; color: white;">Pedir Senha no WhatsApp</button>
+        <p onclick="mostrarTela('telaLogin')" style="margin-top: 15px; cursor: pointer; color: #94a3b8;">Voltar ao Login</p>
+    </div>
+
+    <div id="telaApp" class="container">
+        <div style="font-size: 30px; margin-bottom: 10px;">🚚</div>
+        <h2>Consultar CEP</h2>
+        <input type="tel" id="cepInput" placeholder="00000-000" maxlength="9">
+        <button onclick="verificarCep()">Verificar Disponibilidade</button>
+        <div id="resultado"></div>
+        <p onclick="sair()" style="margin-top:20px; font-size:11px; color:#64748b; cursor:pointer;">Sair / Bloquear</p>
+    </div>
+
+<script>
+    const GITHUB_USER = "thcompany011-crypto";
+    const REPO_NAME = "Ferramentas-Ceps";
+    const WHATS_ALEX = "5562991054774"; 
+
+    let db = { acessos: [], cidades: [], bloqueados: [] };
+
+    async function carregarDados() {
+        const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main/`;
+        try {
+            const [resAcc, resCit, resBlo] = await Promise.all([
+                fetch(url + "acessos.json"),
+                fetch(url + "cidades-atendidas.json"),
+                fetch(url + "ceps-bloqueados.json")
+            ]);
+            db.acessos = await resAcc.json();
+            db.cidades = await resCit.json();
+            db.bloqueados = await resBlo.json();
+        } catch (e) { console.error("Erro ao carregar dados", e); }
+    }
+
+    async function fazerLogin() {
+        await carregarDados();
+        const senha = document.getElementById('senhaAcesso').value;
+        const user = db.acessos.find(u => u.senha === senha);
+        if (user) {
+            localStorage.setItem('nova_auth', user.usuario);
+            mostrarTela('telaApp');
+        } else { alert("Senha incorreta ou acesso não aprovado!"); }
+    }
+
+    function enviarSolicitacao() {
+        const nome = document.getElementById('regNome').value;
+        const email = document.getElementById('regEmail').value;
+        if(!nome || !email) return alert("Preencha os campos!");
+        const msg = encodeURIComponent(`Olá Alex! Quero acesso ao App NovaBeauty.\nNome: ${nome}\nE-mail: ${email}`);
+        window.open(`https://wa.me/${WHATS_ALEX}?text=${msg}`, '_blank');
+    }
+
+    function verificarCep() {
+        const cep = document.getElementById('cepInput').value.replace(/\D/g, '');
+        const resDiv = document.getElementById('resultado');
+        if(cep.length !== 8) return alert("CEP inválido");
+
+        const num = parseInt(cep);
+        const bloq = db.bloqueados.some(b => num >= b.inicio && num <= b.fim);
+        const atend = db.cidades.find(c => num >= c.inicio && num <= c.fim);
+
+        resDiv.style.display = "block";
+        if (bloq) {
+            resDiv.innerHTML = "❌ CEP BLOQUEADO<br>Região com restrição de entrega Logzz.";
+            resDiv.className = "erro";
+        } else if (atend) {
+            resDiv.innerHTML = `✅ DISPONÍVEL!<br>Pagamento na entrega liberado para ${atend.cidade}.`;
+            resDiv.className = "sucesso";
+        } else {
+            resDiv.innerHTML = "❌ NÃO ATENDIDO<br>Use pagamento antecipado (Braip).";
+            resDiv.className = "erro";
+        }
+    }
+
+    function mostrarTela(id) {
+        document.querySelectorAll('.container').forEach(c => c.style.display = 'none');
+        document.getElementById(id).style.display = 'block';
+    }
+
+    function sair() { localStorage.clear(); location.reload(); }
+    
+    if(localStorage.getItem('nova_auth')) { 
+        carregarDados().then(() => mostrarTela('telaApp')); 
+    }
+
+    document.getElementById('cepInput').addEventListener('input', e => {
+        let x = e.target.value.replace(/\D/g, '').match(/(\d{0,5})(\d{0,3})/);
+        e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2];
+    });
+</script>
+</body>
+</html>
+
