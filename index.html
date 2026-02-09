@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Master Check - NovaBeauty</title>
     <style>
-        /* ESTILOS MODERNOS DARK */
+        /* DESIGN DARK PREMIUM */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body { font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
         .container { background: #1e293b; width: 100%; max-width: 400px; padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); text-align: center; border: 1px solid #334155; display: none; }
@@ -46,7 +46,7 @@
     <div id="telaApp" class="container">
         <div style="font-size: 35px; margin-bottom: 10px;">🚚</div>
         <h2>Consultar CEP</h2>
-        <p class="desc">Verifique a disponibilidade de Entrega Expressa.</p>
+        <p class="desc">Verifique a disponibilidade Logzz.</p>
         <input type="tel" id="cepInput" placeholder="00000-000" maxlength="9">
         <button id="btnCheck" onclick="verificarCep()">VERIFICAR AGORA</button>
         <div id="resultado"></div>
@@ -54,66 +54,44 @@
     </div>
 
 <script>
-    // CONFIGURAÇÕES GITHUB
     const GITHUB_USER = "thcompany011-crypto";
     const REPO_NAME = "Ferramentas-Ceps";
-    const WHATS_ALEX = "5562994385558"; // SEU NOVO NÚMERO ATUALIZADO
+    const WHATS_ALEX = "62994385558"; 
 
     let db = { acessos: [], cidades: [], bloqueados: [] };
 
-    // BUSCA OS DADOS ATUALIZADOS DO GITHUB
+    // FUNÇÃO TURBO: Ignora o cache do navegador
     async function carregarDados() {
+        const versao = Math.random(); 
         const urlBase = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main/`;
         try {
             const [resAcc, resCit, resBlo] = await Promise.all([
-                fetch(urlBase + "acessos.json").then(r => r.json()),
-                fetch(urlBase + "cidades-atendidas.json").then(r => r.json()),
-                fetch(urlBase + "ceps-bloqueados.json").then(r => r.json())
+                fetch(`${urlBase}acessos.json?v=${versao}`).then(r => r.json()),
+                fetch(`${urlBase}cidades-atendidas.json?v=${versao}`).then(r => r.json()),
+                fetch(`${urlBase}ceps-bloqueados.json?v=${versao}`).then(r => r.json())
             ]);
             db.acessos = resAcc;
             db.cidades = resCit;
             db.bloqueados = resBlo;
-        } catch (e) { console.error("Erro ao carregar dados do GitHub."); }
+        } catch (e) { console.error("Erro ao conectar com o servidor."); }
     }
 
-    // LÓGICA DE LOGIN COM VALIDAÇÃO RIGOROSA
     async function fazerLogin() {
         const userIn = document.getElementById('loginUser').value.trim();
         const passIn = document.getElementById('loginPass').value.trim();
-        const btn = document.getElementById('btnLogin');
+        if (!userIn || !passIn) return alert("Preencha tudo!");
 
-        if (!userIn || !passIn) {
-            alert("Preencha usuário e senha!");
-            return;
-        }
-
-        btn.disabled = true;
-        btn.innerText = "VERIFICANDO...";
         await carregarDados();
-
         const match = db.acessos.find(u => u.usuario === userIn && u.senha === passIn);
 
         if (match) {
             localStorage.setItem('nova_auth_active', match.usuario);
             mostrarTela('telaApp');
         } else {
-            alert("Acesso negado! Verifique seus dados.");
+            alert("Acesso negado!");
         }
-
-        btn.disabled = false;
-        btn.innerText = "ENTRAR NO SISTEMA";
     }
 
-    // SOLICITAÇÃO VIA WHATSAPP
-    function enviarSolicitacao() {
-        const n = document.getElementById('regNome').value;
-        const u = document.getElementById('regUser').value;
-        if(!n || !u) return alert("Preencha os campos!");
-        const msg = encodeURIComponent(`Olá Alex! Quero acesso à ferramenta NovaBeauty.\nNome: ${n}\nUsuário sugerido: ${u}`);
-        window.open(`https://wa.me/${WHATS_ALEX}?text=${msg}`, '_blank');
-    }
-
-    // CONSULTA DE CEP
     async function verificarCep() {
         const cep = document.getElementById('cepInput').value.replace(/\D/g, '');
         const resDiv = document.getElementById('resultado');
@@ -123,56 +101,52 @@
 
         btn.disabled = true;
         resDiv.style.display = "block";
-        resDiv.innerHTML = "Consultando base...";
+        resDiv.innerHTML = "Validando acesso...";
 
-        if(db.cidades.length === 0) await carregarDados();
+        // RE-VALIDAÇÃO EM TEMPO REAL: Busca a lista atualizada antes da consulta
+        await carregarDados();
+        const logado = localStorage.getItem('nova_auth_active');
+        const aindaExiste = db.acessos.some(u => u.usuario === logado);
 
-        // Verifica Bloqueio Individual
-        if (db.bloqueados.includes(cep)) {
-            resDiv.innerHTML = "❌ <strong>CEP BLOQUEADO</strong><br>Região com restrição de entrega Logzz.";
-            resDiv.className = "erro";
-            btn.disabled = false;
+        if (!aindaExiste) {
+            alert("ERRO: Seu acesso foi revogado pelo administrador!");
+            sair();
             return;
         }
 
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            const data = await response.json();
-            
-            if (data.erro) {
-                resDiv.innerHTML = "❌ CEP não encontrado!";
-                resDiv.className = "erro";
-            } else {
-                const cidadeLimpa = data.localidade.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                
-                // Verifica na lista de cidades atendidas
-                if (db.cidades.includes(cidadeLimpa)) {
-                    resDiv.innerHTML = `✅ <strong>ENTREGA DISPONÍVEL!</strong><br>${data.localidade} (${data.uf}) é atendida pela Logzz.`;
-                    resDiv.className = "sucesso";
-                } else {
-                    resDiv.innerHTML = `❌ <strong>REGIÃO NÃO ATENDIDA</strong><br>${data.localidade} atendida apenas via Braip.`;
+        // Continua a consulta se o usuário for válido
+        if (db.bloqueados.includes(cep)) {
+            resDiv.innerHTML = "❌ <strong>CEP BLOQUEADO</strong><br>Região com restrição Logzz.";
+            resDiv.className = "erro";
+        } else {
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await response.json();
+                if (data.erro) {
+                    resDiv.innerHTML = "❌ CEP não encontrado!";
                     resDiv.className = "erro";
+                } else {
+                    const cidadeLimpa = data.localidade.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    if (db.cidades.includes(cidadeLimpa)) {
+                        resDiv.innerHTML = `✅ <strong>DISPONÍVEL!</strong><br>${data.localidade} atendida via Logzz.`;
+                        resDiv.className = "sucesso";
+                    } else {
+                        resDiv.innerHTML = `❌ <strong>INDISPONÍVEL</strong><br>${data.localidade} atendida via Braip.`;
+                        resDiv.className = "erro";
+                    }
                 }
-            }
-        } catch (e) { resDiv.innerHTML = "Erro na conexão. Tente de novo."; }
-        
+            } catch (e) { resDiv.innerHTML = "Erro de conexão."; }
+        }
         btn.disabled = false;
     }
 
-    // VALIDAÇÃO DE SESSÃO ATIVA (EXPULSA SE APAGAR NO GITHUB)
     async function validarSessao() {
         const logado = localStorage.getItem('nova_auth_active');
         if (logado) {
             await carregarDados();
             const aindaExiste = db.acessos.some(u => u.usuario === logado);
-            if (aindaExiste) {
-                mostrarTela('telaApp');
-            } else {
-                sair(); 
-            }
-        } else {
-            mostrarTela('telaLogin');
-        }
+            if (aindaExiste) { mostrarTela('telaApp'); } else { sair(); }
+        } else { mostrarTela('telaLogin'); }
     }
 
     function mostrarTela(id) {
@@ -180,11 +154,15 @@
         document.getElementById(id).style.display = 'block';
     }
 
+    function enviarSolicitacao() {
+        const n = document.getElementById('regNome').value;
+        const u = document.getElementById('regUser').value;
+        if(!n || !u) return alert("Preencha os campos!");
+        window.open(`https://wa.me/${WHATS_ALEX}?text=Olá Alex! Quero acesso ao App.\nNome: ${n}\nUsuário: ${u}`, '_blank');
+    }
+
     function sair() { localStorage.clear(); location.reload(); }
-
     validarSessao();
-
-    // MÁSCARA DE CEP
     document.getElementById('cepInput').addEventListener('input', e => {
         let x = e.target.value.replace(/\D/g, '').match(/(\d{0,5})(\d{0,3})/);
         e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2];
